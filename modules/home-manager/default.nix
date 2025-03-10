@@ -1,4 +1,4 @@
-self: { config, lib, pkgs, inputs, ... }:
+self: { config, lib, pkgs, zen-packages, ... }:
 
 with lib;
 
@@ -240,12 +240,12 @@ in {
       package = mkOption {
         type = with types; nullOr package;
         default = if versionAtLeast config.home.stateVersion "19.09" then
-          inputs.zen-packages.packages.zen-browser
+          zen-packages.packages.zen-browser
         else
-          inputs.zen-packages.packages.zen-browser-unwrapped;
-        defaultText = literalExpression "inputs.zen-packages.packages.zen-browser";
+          zen-packages.packages.zen-browser-unwrapped;
+        defaultText = literalExpression "zen-packages.packages.zen-browser";
         example = literalExpression ''
-          inputs.zen-packages.packages.zen-browser.override {
+          zen-packages.packages.zen-browser.override {
             # See nixpkgs' firefox/wrapper.nix to check which options you can use
             nativeMessagingHosts = [
               # Gnome shell native connector

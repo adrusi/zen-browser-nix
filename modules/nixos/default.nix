@@ -1,4 +1,4 @@
-{ pkgs, config, lib, inputs, ... }:
+{ pkgs, config, lib, zen-packages, ... }:
 
 let
   cfg = config.programs.zen-browser;
@@ -64,9 +64,9 @@ in
 
     package = lib.mkOption {
       type = lib.types.package;
-      default = inputs.zen-packages.packages.zen-browser;
+      default = zen-packages.packages.zen-browser;
       description = "Zen package to use.";
-      defaultText = lib.literalExpression "inputs.zen-packages.packages.zen-browser";
+      defaultText = lib.literalExpression "zen-packages.packages.zen-browser";
       relatedPackages = [
         "firefox"
         "firefox-beta-bin"

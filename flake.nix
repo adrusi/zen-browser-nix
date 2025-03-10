@@ -12,21 +12,19 @@
 
   };
 
-  outputs = { self, nixpkgs, ... } @ inputs: let
+  outputs = { nixpkgs, zen-packages, ... }: let
 
-      inherit (nixpkgs) lib;
+      systems = [ "x86_64-linux" "aarch64-linux" ]; 
 
-      systems = lib.systems.flakeExposed;
-      
       forAllSystems = lib.genAttrs systems;
 
       pkgs = forAllSystems (system: nixpkgs.legacyPackages.${system});
 
     in {
 
-      homeManagerModules.zen-browser = import ./modules/home-manager { inherit inputs pkgs; };
+      homeManagerModules.zen-browser = import ./modules/home-manager { inherit pkgs zen-packages; };
 
-      nixosModules.zen-browser = import ./modules/nixos { inherit inputs pkgs; };
+      nixosModules.zen-browser = import ./modules/nixos { inherit pkgs zen-packages; };
 
     };
 }
