@@ -24,7 +24,7 @@
       { pkgs, ... }: {
         _file = "${self.outPath}/flake.nix#${type}Modules.${name}";
 
-        imports = [ (file {inherit inputs;}) ];
+        imports = [ file ];
 
         zen-browser.sources = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system};
       };
@@ -32,12 +32,12 @@
 
       homeManagerModules.zen-browser = mkModule {
         type = "homeManager";
-        file = ./modules/home-manager;
+        file = ./modules/home-manager {inherit inputs;};
       };
 
       nixosModules.zen-browser = mkModule {
         type = "nixos";
-        file = ./modules/nixos;
+        file = ./modules/nixos {inherit inputs;};
       };
     };
 }
