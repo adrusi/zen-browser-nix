@@ -12,7 +12,7 @@
 
   };
 
-  outputs = { self, nixpkgs, zen-packages, ... } @ inputs: let
+  outputs = { self, nixpkgs, ... } @ inputs: let
 
       inherit (nixpkgs) lib;
 
@@ -21,6 +21,8 @@
       forAllSystems = lib.genAttrs systems;
 
     in {
+
+      inherit inputs;
 
       pkgs = forAllSystems (system: nixpkgs.legacyPackages.${system});
 
