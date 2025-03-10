@@ -12,7 +12,7 @@
 
   };
 
-  outputs = { self, nixpkgs, ... } @ inputs: let
+  outputs = { self, nixpkgs, zen-packages, ... } @ inputs: let
 
       inherit (nixpkgs) lib;
 
