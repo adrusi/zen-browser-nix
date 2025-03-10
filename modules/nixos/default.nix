@@ -1,10 +1,4 @@
-self :{
-  pkgs,
-  config,
-  lib,
-  inputs,
-  ...
-}:
+{ pkgs, config, lib, inputs, ... }:
 
 let
   cfg = config.programs.zen-browser;

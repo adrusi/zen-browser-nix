@@ -20,15 +20,13 @@
       
       forAllSystems = lib.genAttrs systems;
 
-    in {
-
-      inherit inputs;
-
       pkgs = forAllSystems (system: nixpkgs.legacyPackages.${system});
 
-      homeManagerModules.zen-browser = import ./modules/home-manager self;
+    in {
 
-      nixosModules.zen-browser = import ./modules/nixos self;
+      homeManagerModules.zen-browser = import ./modules/home-manager { inherit inputs pkgs; };
+
+      nixosModules.zen-browser = import ./modules/nixos { inherit inputs pkgs; };
 
     };
 }
