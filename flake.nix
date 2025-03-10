@@ -16,7 +16,7 @@
 
       systems = [ "x86_64-linux" "aarch64-linux" ]; 
 
-      forAllSystems = nixpks.lib.genAttrs systems;
+      forAllSystems = nixpkgs.lib.genAttrs systems;
 
       pkgs = forAllSystems (system: nixpkgs.legacyPackages.${system});
 
