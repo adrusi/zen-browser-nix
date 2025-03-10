@@ -12,12 +12,21 @@
 
   };
 
-  outputs =
-    { self, nixpkgs, ... } @ inputs: {
+  outputs = { self, nixpkgs, ... } @ inputs: let
 
-      homeManagerModules.zen-browser = import ./modules/home-manager {inherit inputs;};
+      inherit (nixpkgs) lib;
 
-      nixosModules.zen-browser = import ./modules/nixos {inherit inputs;};
+      systems = lib.systems.flakeExposed;
+      
+      forAllSystems = lib.genAttrs systems;
+
+    in {
+
+      pkgs = forAllSystems (system: nixpkgs.legacyPackages.${system});
+
+      homeManagerModules.zen-browser = import ./modules/home-manager self;
+
+      nixosModules.zen-browser = import ./modules/nixos self;
 
     };
 }
