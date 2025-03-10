@@ -13,31 +13,11 @@
   };
 
   outputs =
-    { self, nixpkgs, ... } @ inputs: let
-      inherit (nixpkgs) lib;
+    { self, nixpkgs, ... } @ inputs: {
 
-      mkModule = {
-        name ? "zen-browser",
-        type,
-        file,
-      }:
-      { pkgs, ... }: {
-        _file = "${self.outPath}/flake.nix#${type}Modules.${name}";
+      homeManagerModules.zen-browser = import ./modules/home-manager {inherit inputs;};
 
-        imports = [ file ];
+      nixosModules.zen-browser = import ./modules/nixos {inherit inputs;};
 
-        zen-browser.sources = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system};
-      };
-    in {
-
-      homeManagerModules.zen-browser = mkModule {
-        type = "homeManager";
-        file = ./modules/home-manager {inherit inputs;};
-      };
-
-      nixosModules.zen-browser = mkModule {
-        type = "nixos";
-        file = ./modules/nixos {inherit inputs;};
-      };
     };
 }
