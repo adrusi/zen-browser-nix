@@ -1,4 +1,4 @@
-self: { config, lib, pkgs, zen-packages, ... }:
+self: { config, lib, pkgs, ... }:
 
 with lib;
 
@@ -235,17 +235,18 @@ in {
 
   options = {
     programs.zen-browser = {
+
       enable = mkEnableOption "Zen";
 
       package = mkOption {
         type = with types; nullOr package;
         default = if versionAtLeast config.home.stateVersion "19.09" then
-          zen-packages.packages.zen-browser
+          pkgs.zen-browser
         else
-          zen-packages.packages.zen-browser-unwrapped;
-        defaultText = literalExpression "zen-packages.packages.zen-browser";
+          pkgs.zen-browser-unwrapped;
+        defaultText = literalExpression "pkgs.zen-browser";
         example = literalExpression ''
-          zen-packages.packages.zen-browser.override {
+          pkgs.zen-browser.override {
             # See nixpkgs' firefox/wrapper.nix to check which options you can use
             nativeMessagingHosts = [
               # Gnome shell native connector
@@ -712,6 +713,9 @@ in {
   };
 
   config = mkIf cfg.enable {
+
+    nixpkgs.overlays = [ self.overlay ];
+
     assertions = [
       (let
         defaults =
@@ -887,7 +891,7 @@ in {
                   hash = "@hash@";
                 } // optionalAttrs (profile.search.privateDefault != null) {
                   private = profile.search.privateDefault;
-                  privateHash = "@privateHash@";
+                  privateHash = "privateHash@";
                 } // {
                   useSavedOrder = profile.search.order != [ ];
                 };
