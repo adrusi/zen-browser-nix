@@ -10,21 +10,21 @@ let
 
   jsonFormat = pkgs.formats.json { };
 
-  zenConfigPath =
-    if isDarwin then "Library/Application Support/Zen" else ".zen";
+  mozillaConfigPath =
+    if isDarwin then "Library/Application Support/Mozilla" else ".mozilla";
 
-  browserConfigPath = if isDarwin then
-    "Library/Application Support/zen"
+  zenConfigPath = if isDarwin then
+    "Library/Application Support/Zen"
   else
-    "${zenConfigPath}/zen-browser";
+    ".zen";
 
   profilesPath =
-    if isDarwin then "${browserConfigPath}/Profiles" else browserConfigPath;
+    if isDarwin then "${zenConfigPath}/Profiles" else zenConfigPath;
 
   nativeMessagingHostsPath = if isDarwin then
-    "${zenConfigPath}/NativeMessagingHosts"
+    "${mozillaConfigPath}/NativeMessagingHosts"
   else
-    "${zenConfigPath}/native-messaging-hosts";
+    "${mozillaConfigPath}/native-messaging-hosts";
 
   nativeMessagingHostsJoined = pkgs.symlinkJoin {
     name = "ff_native-messaging-hosts";
@@ -758,7 +758,7 @@ in {
     home.packages = lib.optional (cfg.finalPackage != null) cfg.finalPackage;
 
     home.file = mkMerge ([{
-      "${browserConfigPath}/profiles.ini" =
+      "${zenConfigPath}/profiles.ini" =
         mkIf (cfg.profiles != { }) { text = profilesIni; };
 
       "${nativeMessagingHostsPath}" = {
