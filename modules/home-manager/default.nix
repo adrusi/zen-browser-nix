@@ -16,7 +16,7 @@ let
   browserConfigPath = if isDarwin then
     "Library/Application Support/zen"
   else
-    "${zenConfigPath}/zen-browser";
+    "${zenConfigPath}";
 
   profilesPath =
     if isDarwin then "${browserConfigPath}/Profiles" else browserConfigPath;
