@@ -213,7 +213,7 @@ let
       (pkgs.wrapFirefox.override { config = bcfg; }) package { };
 
 in {
-  meta.maintainers = [ maintainers.rycee maintainers.kira-bruneau ];
+  meta.maintainers = [ maintainers.LunaCOLON3 ];
 
   imports = [
     (mkRemovedOptionModule [ "programs" "zen-browser" "extensions" ] ''
