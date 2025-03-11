@@ -64,7 +64,7 @@ in
 
     package = lib.mkOption {
       type = lib.types.package;
-      default = zen-packages.packages.zen-browser;
+      default = pkgs.zen-browser;
       description = "Zen package to use.";
       defaultText = lib.literalExpression "zen-packages.packages.zen-browser";
       relatedPackages = [
@@ -295,6 +295,7 @@ in
         );
     in
     lib.mkIf cfg.enable {
+      nixpkgs.overlays = [ self.overlay ];
       warnings = forEachEnabledNmh (
         k: v:
         "The `programs.zen-browser.nativeMessagingHosts.${k}` option is deprecated, "
