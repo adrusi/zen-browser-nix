@@ -11,7 +11,7 @@ let
   jsonFormat = pkgs.formats.json { };
 
   mozillaConfigPath =
-    if isDarwin then "Library/Application Support/Mozilla" else ".mozila";
+    if isDarwin then "Library/Application Support/Mozilla" else ".mozilla";
 
   zenConfigPath = if isDarwin then
     "Library/Application Support/Zen"
