@@ -10,9 +10,6 @@ let
 
   jsonFormat = pkgs.formats.json { };
 
-  mozillaConfigPath =
-    if isDarwin then "Library/Application Support/Mozilla" else ".mozilla";
-
   zenConfigPath = if isDarwin then
     "Library/Application Support/Zen"
   else
@@ -20,11 +17,6 @@ let
 
   profilesPath =
     if isDarwin then "${zenConfigPath}/Profiles" else zenConfigPath;
-
-  nativeMessagingHostsPath = if isDarwin then
-    "${mozillaConfigPath}/NativeMessagingHosts"
-  else
-    "${mozillaConfigPath}/native-messaging-hosts";
 
   nativeMessagingHostsJoined = pkgs.symlinkJoin {
     name = "ff_native-messaging-hosts";
@@ -757,15 +749,12 @@ in {
 
     home.packages = lib.optional (cfg.finalPackage != null) cfg.finalPackage;
 
+    mozilla.firefoxNativeMessagingHosts = [ nativeMessagingHostsJoined ];
+
     home.file = mkMerge ([{
       "${zenConfigPath}/profiles.ini" =
         mkIf (cfg.profiles != { }) { text = profilesIni; };
 
-      "${nativeMessagingHostsPath}" = {
-        source =
-          "${nativeMessagingHostsJoined}/lib/zen/native-messaging-hosts";
-        recursive = true;
-      };
     }] ++ flip mapAttrsToList cfg.profiles (_: profile: {
       "${profilesPath}/${profile.path}/.keep".text = "";
 
