@@ -656,32 +656,142 @@ in {
             };
 
             extensions = mkOption {
-              type = types.listOf types.package;
-              default = [ ];
-              example = literalExpression ''
-                with pkgs.nur.repos.rycee.firefox-addons; [
-                  privacy-badger
-                ]
-              '';
+              type =
+                types.coercedTo (types.listOf types.package)
+                  (packages: {
+                    packages = mkIf (builtins.length packages > 0) (
+                      lib.warn ''
+                        In order to support declarative extension configuration,
+                        extension installation has been moved from
+                        programs.zen-browser.profiles.<profile>.extensions
+                        to
+                        programs.zen-browser.profiles.<profile>.extensions.packages
+                      '' packages
+                    );
+                  })
+                  (
+                    types.submodule {
+                      options = {
+                        packages = mkOption {
+                          type = types.listOf types.package;
+                          default = [ ];
+                          example = literalExpression ''
+                            with pkgs.nur.repos.rycee.firefox-addons; [
+                              privacy-badger
+                            ]
+                          '';
+                          description = ''
+                            List of Zen add-on packages to install for this profile.
+                            Some pre-packaged add-ons are accessible from the
+                            [Nix User Repository](https://github.com/nix-community/NUR).
+                            Once you have NUR installed run
+
+                            ```console
+                            $ nix-env -f '<nixpkgs>' -qaP -A nur.repos.rycee.firefox-addons
+                            ```
+
+                            to list the available Zen add-ons.
+
+                            Note that it is necessary to manually enable these extensions
+                            inside Zen after the first installation.
+
+                            To automatically enable extensions add
+                            `"extensions.autoDisableScopes" = 0;`
+                            to
+                            [{option}`programs.zen-browser.profiles.<profile>.settings`](#opt-programs.zen-browser.profiles._name_.settings)
+                          '';
+                        };
+
+                        settings = mkOption {
+                          default = { };
+                          example = literalExpression ''
+                            {
+                              # Example with uBlock origin's extensionID
+                              "uBlock0@raymondhill.net".settings = {
+                                selectedFilterLists = [
+                                  "ublock-filters"
+                                  "ublock-badware"
+                                  "ublock-privacy"
+                                  "ublock-unbreak"
+                                  "ublock-quick-fixes"
+                                ];
+                              };
+
+                              # Example with Stylus' UUID-form extensionID
+                              "{7a7a4a92-a2a0-41d1-9fd7-1e92480d612d}".settings = {
+                                dbInChromeStorage = true; # required for Stylus
+                              }
+                            }
+                          '';
+                          description = ''
+                            Attribute set of options for each extension.
+                            The keys of the attribute set consist of the ID of the extension
+                            or its UUID wrapped in curly braces.
+                          '';
+                          type = types.attrsOf (
+                            types.submodule {
+                              options = {
+                                settings = mkOption {
+                                  type = types.attrsOf jsonFormat.type;
+                                  default = { };
+                                  description = "Json formatted options for this extension.";
+                                };
+                                permissions = mkOption {
+                                  type = types.nullOr (types.listOf types.str);
+                                  default = null;
+                                  example = [ "activeTab" ];
+                                  defaultText = "Any permissions";
+                                  description = ''
+                                    Allowed permissions for this extension. See
+                                    <https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/permissions>
+                                    for a list of relevant permissions.
+                                  '';
+                                };
+                                force = mkOption {
+                                  type = types.bool;
+                                  default = false;
+                                  example = true;
+                                  description = ''
+                                    Forcibly override any existing configuration for
+                                    this extension.
+                                  '';
+                                };
+                              };
+                            }
+                          );
+                        };
+
+                        force = mkOption {
+                          type = types.bool;
+                          default = false;
+                          description = ''
+                            Forcibly override any existing extension configurations.
+                          '';
+                        };
+                      };
+                    }
+                  );
+              default = { };
               description = ''
-                List of Firefox add-on packages to install for this profile.
-                Some pre-packaged add-ons are accessible from the
-                [Nix User Repository](https://github.com/nix-community/NUR).
-                Once you have NUR installed run
-
-                ```console
-                $ nix-env -f '<nixpkgs>' -qaP -A nur.repos.rycee.firefox-addons
-                ```
-
-                to list the available Firefox add-ons.
-
-                Note that it is necessary to manually enable these extensions
-                inside Zen after the first installation.
-
-                To automatically enable extensions add
-                `"extensions.autoDisableScopes" = 0;`
-                to
-                [{option}`programs.zen-browser.profiles.<profile>.settings`](#opt-programs.zen-browser.profiles._name_.settings)
+                Submodule for installing and configuring extensions.
+              '';
+              example = literalExpression ''
+                {
+                  packages = with pkgs.nur.repos.rycee.firefox-addons; [
+                    ublock-origin
+                  ];
+                  settings = {
+                    "uBlock0@raymondhill.net".settings = {
+                      selectedFilterLists = [
+                        "ublock-filters"
+                        "ublock-badware"
+                        "ublock-privacy"
+                        "ublock-unbreak"
+                        "ublock-quick-fixes"
+                      ];
+                    };
+                  };
+                }
               '';
             };
 
@@ -755,185 +865,199 @@ in {
       "${zenConfigPath}/profiles.ini" =
         mkIf (cfg.profiles != { }) { text = profilesIni; };
 
-    }] ++ flip mapAttrsToList cfg.profiles (_: profile: {
-      "${profilesPath}/${profile.path}/.keep".text = "";
-
-      "${profilesPath}/${profile.path}/chrome/userChrome.css" =
-        mkIf (profile.userChrome != "") { text = profile.userChrome; };
-
-      "${profilesPath}/${profile.path}/chrome/userContent.css" =
-        mkIf (profile.userContent != "") { text = profile.userContent; };
-
-      "${profilesPath}/${profile.path}/user.js" = mkIf (profile.settings != { }
-        || profile.extraConfig != "" || profile.bookmarks != [ ]) {
-          text =
-            mkUserJs profile.settings profile.extraConfig profile.bookmarks;
-        };
-
-      "${profilesPath}/${profile.path}/containers.json" =
-        mkIf (profile.containers != { }) {
-          force = profile.containersForce;
-          text = mkContainersJson profile.containers;
-        };
-
-      "${profilesPath}/${profile.path}/search.json.mozlz4" = mkIf
-        (profile.search.default != null || profile.search.privateDefault != null
-          || profile.search.order != [ ] || profile.search.engines != { }) {
-            force = profile.search.force;
-            source = let
-              settings = {
-                version = 6;
-                engines = let
-                  # Map of nice field names to internal field names.
-                  # This is intended to be exhaustive and should be
-                  # updated at every version bump.
-                  internalFieldNames = (genAttrs [
-                    "name"
-                    "isAppProvided"
-                    "loadPath"
-                    "hasPreferredIcon"
-                    "updateInterval"
-                    "updateURL"
-                    "iconUpdateURL"
-                    "iconURL"
-                    "iconMapObj"
-                    "metaData"
-                    "orderHint"
-                    "definedAliases"
-                    "urls"
-                  ] (name: "_${name}")) // {
-                    searchForm = "__searchForm";
-                  };
-
-                  processCustomEngineInput = input:
-                    (removeAttrs input [ "icon" ])
-                    // optionalAttrs (input ? icon) {
-                      # Convenience to specify absolute path to icon
-                      iconURL = "file://${input.icon}";
-                    } // (optionalAttrs (input ? iconUpdateURL) {
-                      # Convenience to default iconURL to iconUpdateURL so
-                      # the icon is immediately downloaded from the URL
-                      iconURL = input.iconURL or input.iconUpdateURL;
-                    } // {
-                      # Required for custom engine configurations, loadPaths
-                      # are unique identifiers that are generally formatted
-                      # like: [source]/path/to/engine.xml
-                      loadPath = ''
-                        [home-manager]/programs.zen-browser.profiles.${profile.name}.search.engines."${
-                          replaceStrings [ "\\" ] [ "\\\\" ] input.name
-                        }"'';
-                    });
-
-                  processEngineInput = name: input:
-                    let
-                      requiredInput = {
-                        inherit name;
-                        isAppProvided = input.isAppProvided or removeAttrs input
-                          [ "metaData" ] == { };
-                        metaData = input.metaData or { };
-                      };
-                    in if requiredInput.isAppProvided then
-                      requiredInput
-                    else
-                      processCustomEngineInput (input // requiredInput);
-
-                  buildEngineConfig = name: input:
-                    mapAttrs' (name: value: {
-                      name = internalFieldNames.${name} or name;
-                      inherit value;
-                    }) (processEngineInput name input);
-
-                  sortEngineConfigs = configs:
-                    let
-                      buildEngineConfigWithOrder = order: name:
-                        let
-                          config = configs.${name} or {
-                            _name = name;
-                            _isAppProvided = true;
-                            _metaData = { };
-                          };
-                        in config // {
-                          _metaData = config._metaData // { inherit order; };
-                        };
-
-                      engineConfigsWithoutOrder =
-                        attrValues (removeAttrs configs profile.search.order);
-
-                      sortedEngineConfigs =
-                        (imap buildEngineConfigWithOrder profile.search.order)
-                        ++ engineConfigsWithoutOrder;
-                    in sortedEngineConfigs;
-
-                  engineInput = profile.search.engines // {
-                    # Infer profile.search.default as an app provided
-                    # engine if it's not in profile.search.engines
-                    ${profile.search.default} =
-                      profile.search.engines.${profile.search.default} or { };
-                  } // {
-                    ${profile.search.privateDefault} =
-                      profile.search.engines.${profile.search.privateDefault} or { };
-                  };
-                in sortEngineConfigs (mapAttrs buildEngineConfig engineInput);
-
-                metaData = optionalAttrs (profile.search.default != null) {
-                  current = profile.search.default;
-                  hash = "@hash@";
-                } // optionalAttrs (profile.search.privateDefault != null) {
-                  private = profile.search.privateDefault;
-                  privateHash = "privateHash@";
-                } // {
-                  useSavedOrder = profile.search.order != [ ];
-                };
-              };
-
-              # Home Manager doesn't circumvent user consent and isn't acting
-              # maliciously. We're modifying the search outside of Firefox, but
-              # a claim by Mozilla to remove this would be very anti-user, and
-              # is unlikely to be an issue for our use case.
-              disclaimer = appName:
-                "By modifying this file, I agree that I am doing so "
-                + "only within ${appName} itself, using official, user-driven search "
-                + "engine selection processes, and in a way which does not circumvent "
-                + "user consent. I acknowledge that any attempt to change this file "
-                + "from outside of ${appName} is a malicious act, and will be responded "
-                + "to accordingly.";
-
-              salt = if profile.search.default != null then
-                profile.path + profile.search.default + disclaimer "Zen"
-              else
-                null;
-
-              privateSalt = if profile.search.privateDefault != null then
-                profile.path + profile.search.privateDefault
-                + disclaimer "Zen"
-              else
-                null;
-            in pkgs.runCommand "search.json.mozlz4" {
-              nativeBuildInputs = with pkgs; [ mozlz4a openssl ];
-              json = builtins.toJSON settings;
-              inherit salt privateSalt;
-            } ''
-              if [[ -n $salt ]]; then
-                export hash=$(echo -n "$salt" | openssl dgst -sha256 -binary | base64)
-                export privateHash=$(echo -n "$privateSalt" | openssl dgst -sha256 -binary | base64)
-                mozlz4a <(substituteStream json search.json.in --subst-var hash --subst-var privateHash) "$out"
-              else
-                mozlz4a <(echo "$json") "$out"
-              fi
-            '';
+    }] ++ flip mapAttrsToList cfg.profiles (_: profile: mkMerge [
+      {
+        "${profilesPath}/${profile.path}/.keep".text = "";
+  
+        "${profilesPath}/${profile.path}/chrome/userChrome.css" =
+          mkIf (profile.userChrome != "") { text = profile.userChrome; };
+  
+        "${profilesPath}/${profile.path}/chrome/userContent.css" =
+          mkIf (profile.userContent != "") { text = profile.userContent; };
+  
+        "${profilesPath}/${profile.path}/user.js" = mkIf (profile.settings != { }
+          || profile.extraConfig != "" || profile.bookmarks != [ ]) {
+            text =
+              mkUserJs profile.settings profile.extraConfig profile.bookmarks;
           };
-
-      "${profilesPath}/${profile.path}/extensions" =
-        mkIf (profile.extensions != [ ]) {
-          source = let
-            extensionsEnvPkg = pkgs.buildEnv {
-              name = "hm-firefox-extensions";
-              paths = profile.extensions;
+  
+        "${profilesPath}/${profile.path}/containers.json" =
+          mkIf (profile.containers != { }) {
+            force = profile.containersForce;
+            text = mkContainersJson profile.containers;
+          };
+  
+        "${profilesPath}/${profile.path}/search.json.mozlz4" = mkIf
+          (profile.search.default != null || profile.search.privateDefault != null
+            || profile.search.order != [ ] || profile.search.engines != { }) {
+              force = profile.search.force;
+              source = let
+                settings = {
+                  version = 6;
+                  engines = let
+                    # Map of nice field names to internal field names.
+                    # This is intended to be exhaustive and should be
+                    # updated at every version bump.
+                    internalFieldNames = (genAttrs [
+                      "name"
+                      "isAppProvided"
+                      "loadPath"
+                      "hasPreferredIcon"
+                      "updateInterval"
+                      "updateURL"
+                      "iconUpdateURL"
+                      "iconURL"
+                      "iconMapObj"
+                      "metaData"
+                      "orderHint"
+                      "definedAliases"
+                      "urls"
+                    ] (name: "_${name}")) // {
+                      searchForm = "__searchForm";
+                    };
+  
+                    processCustomEngineInput = input:
+                      (removeAttrs input [ "icon" ])
+                      // optionalAttrs (input ? icon) {
+                        # Convenience to specify absolute path to icon
+                        iconURL = "file://${input.icon}";
+                      } // (optionalAttrs (input ? iconUpdateURL) {
+                        # Convenience to default iconURL to iconUpdateURL so
+                        # the icon is immediately downloaded from the URL
+                        iconURL = input.iconURL or input.iconUpdateURL;
+                      } // {
+                        # Required for custom engine configurations, loadPaths
+                        # are unique identifiers that are generally formatted
+                        # like: [source]/path/to/engine.xml
+                        loadPath = ''
+                          [home-manager]/programs.zen-browser.profiles.${profile.name}.search.engines."${
+                            replaceStrings [ "\\" ] [ "\\\\" ] input.name
+                          }"'';
+                      });
+  
+                    processEngineInput = name: input:
+                      let
+                        requiredInput = {
+                          inherit name;
+                          isAppProvided = input.isAppProvided or removeAttrs input
+                            [ "metaData" ] == { };
+                          metaData = input.metaData or { };
+                        };
+                      in if requiredInput.isAppProvided then
+                        requiredInput
+                      else
+                        processCustomEngineInput (input // requiredInput);
+  
+                    buildEngineConfig = name: input:
+                      mapAttrs' (name: value: {
+                        name = internalFieldNames.${name} or name;
+                        inherit value;
+                      }) (processEngineInput name input);
+  
+                    sortEngineConfigs = configs:
+                      let
+                        buildEngineConfigWithOrder = order: name:
+                          let
+                            config = configs.${name} or {
+                              _name = name;
+                              _isAppProvided = true;
+                              _metaData = { };
+                            };
+                          in config // {
+                            _metaData = config._metaData // { inherit order; };
+                          };
+  
+                        engineConfigsWithoutOrder =
+                          attrValues (removeAttrs configs profile.search.order);
+  
+                        sortedEngineConfigs =
+                          (imap buildEngineConfigWithOrder profile.search.order)
+                          ++ engineConfigsWithoutOrder;
+                      in sortedEngineConfigs;
+  
+                    engineInput = profile.search.engines // {
+                      # Infer profile.search.default as an app provided
+                      # engine if it's not in profile.search.engines
+                      ${profile.search.default} =
+                        profile.search.engines.${profile.search.default} or { };
+                    } // {
+                      ${profile.search.privateDefault} =
+                        profile.search.engines.${profile.search.privateDefault} or { };
+                    };
+                  in sortEngineConfigs (mapAttrs buildEngineConfig engineInput);
+  
+                  metaData = optionalAttrs (profile.search.default != null) {
+                    current = profile.search.default;
+                    hash = "@hash@";
+                  } // optionalAttrs (profile.search.privateDefault != null) {
+                    private = profile.search.privateDefault;
+                    privateHash = "privateHash@";
+                  } // {
+                    useSavedOrder = profile.search.order != [ ];
+                  };
+                };
+  
+                # Home Manager doesn't circumvent user consent and isn't acting
+                # maliciously. We're modifying the search outside of Firefox, but
+                # a claim by Mozilla to remove this would be very anti-user, and
+                # is unlikely to be an issue for our use case.
+                disclaimer = appName:
+                  "By modifying this file, I agree that I am doing so "
+                  + "only within ${appName} itself, using official, user-driven search "
+                  + "engine selection processes, and in a way which does not circumvent "
+                  + "user consent. I acknowledge that any attempt to change this file "
+                  + "from outside of ${appName} is a malicious act, and will be responded "
+                  + "to accordingly.";
+  
+                salt = if profile.search.default != null then
+                  profile.path + profile.search.default + disclaimer "Zen"
+                else
+                  null;
+  
+                privateSalt = if profile.search.privateDefault != null then
+                  profile.path + profile.search.privateDefault
+                  + disclaimer "Zen"
+                else
+                  null;
+              in pkgs.runCommand "search.json.mozlz4" {
+                nativeBuildInputs = with pkgs; [ mozlz4a openssl ];
+                json = builtins.toJSON settings;
+                inherit salt privateSalt;
+              } ''
+                if [[ -n $salt ]]; then
+                  export hash=$(echo -n "$salt" | openssl dgst -sha256 -binary | base64)
+                  export privateHash=$(echo -n "$privateSalt" | openssl dgst -sha256 -binary | base64)
+                  mozlz4a <(substituteStream json search.json.in --subst-var hash --subst-var privateHash) "$out"
+                else
+                  mozlz4a <(echo "$json") "$out"
+                fi
+              '';
             };
-          in "${extensionsEnvPkg}/share/mozilla/${extensionPath}";
+  
+        "${profilesPath}/${profile.path}/extensions" = mkIf (profile.extensions.packages != [ ]) {
+          source =
+            let
+              extensionsEnvPkg = pkgs.buildEnv {
+                name = "hm-firefox-extensions";
+                paths = profile.extensions.packages;
+              };
+            in
+            "${extensionsEnvPkg}/share/mozilla/${extensionPath}";
           recursive = true;
           force = true;
         };
-    }));
+      }
+      (mkMerge (
+        mapAttrsToList (
+          name: settingConfig:
+          mkIf (settingConfig.settings != { }) {
+            "${profilesPath}/${profile.path}/browser-extension-data/${name}/storage.js" = {
+              force = settingConfig.force || profile.extensions.force;
+              text = lib.generators.toJSON { } settingConfig.settings;
+            };
+          }
+        ) profile.extensions.settings
+      ))
+    ]));
   };
 }
